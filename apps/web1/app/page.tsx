@@ -17,19 +17,47 @@ export default function Home() {
 	useEffect(() => {
 		// Check for the appToken cookie
 		const checkAppToken = async () => {
-			try {
-				await fetch(
-					`${IDP_URL}/api/authorize?` +
-						new URLSearchParams({
-							redirect_url: window.location.origin + '/api/callback',
-						}),
-					{
-						method: "GET",
-            credentials: "include",
-					}
-				);
-			} catch (error) {
-				console.error("Error checking appToken:", error);
+			if (
+				window.location.href.includes("appToken") ||
+				window.location.href.includes("error")
+			)
+				return;
+			const iframe = document.createElement("iframe");
+			iframe.id = "slient-auth-check";
+			iframe.style.display = "none";
+			iframe.src =
+				`${IDP_URL}/api/authorize?` +
+				new URLSearchParams({
+					redirect_url: window.location.origin + "/api/callback",
+					silent: "true",
+				});
+			window.addEventListener("message", async (event) => {
+				// Optionally, verify event.origin to ensure it's from a trusted source
+				const data = event.data;
+				if (data.error) {
+					console.log("Silent auth failed:", data.error);
+					// Handle error (e.g., prompt the user to log in interactively)
+				} else if (data.token) {
+					console.log("User is already logged in:", data.token);
+					const { accessToken } = await fetch('/api/get-token?' + new URLSearchParams({
+						accessToken: data.token,
+					})).then(res => res.json()).then(res => {
+						return res as { accessToken: string }
+					})
+					const resultUser = await fetch('/api/account', {
+						headers: {
+							Authorization: `Bearer ${accessToken}`,
+						}
+					}).then(res => res.json()).then(res => {
+						return res
+					})
+					setUser(resultUser.data as User);
+					setIsLoggedIn(true)
+					// Use the token to update the UI and create a local session
+				}
+			});
+			if (document.querySelectorAll(iframe.id).length === 0) {
+				document.body.appendChild(iframe);
 			}
 		};
 
@@ -40,7 +68,7 @@ export default function Home() {
 		router.push(
 			`${IDP_URL}/?` +
 				new URLSearchParams({
-					redirect_url: window.location.origin + '/api/callback',
+					redirect_url: window.location.origin + "/api/callback",
 				})
 		);
 	};

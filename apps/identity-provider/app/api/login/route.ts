@@ -12,16 +12,15 @@ export async function POST(request: Request) {
   const user = mockUsers.find(
     (u) => u.username === username && u.password === password
   );
-
   if (user) {
     const payload = {
       sub: user.username,
       name: user.name,
       email: user.email,
     };
-
     const token = sign(payload, JWT_SECRET, {
       expiresIn: "1h",
+      algorithm: 'RS256'
     });
 
     // Set the token as an HTTP-only cookie
